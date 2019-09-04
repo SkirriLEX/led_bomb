@@ -4,157 +4,119 @@
 #define RIGHT_LEDS    7
 #define LEFT_LEDS     8
 #define IR_RECIVE     5
-#define PIN_LATCH     2
-#define PIN_CLOCK     3
-#define PIN_DATA      4
+#define PIN_CLOCK     2//2 3
+#define PIN_LATCH     3//3 2
+#define PIN_DATA      4//4 4
+#define PIN_LED_1     9
+#define PIN_LED_2     10
 
+const byte ledCharSet[10] =
+{
+  B01111110, //0
+  B00011000, //1
+  B11010110, //2
+  B11011010, //3
+  B10111000, //4
+  B11101010, //5
+  B11101110, //6
+  B01011000, //7
+  B11111110, //8
+  B11111010  //9
+};
 
 IRrecv irrecv(IR_RECIVE);
 
 void setup() {
   Serial.begin(115200);
   irrecv.enableIRIn();
+  pinMode(PIN_LATCH, OUTPUT);
+  pinMode(PIN_CLOCK, OUTPUT);
+  pinMode(PIN_DATA, OUTPUT);
+  pinMode(PIN_LED_1, OUTPUT);
+  pinMode(PIN_LED_2, OUTPUT);
+  pinMode(RIGHT_LEDS, OUTPUT);
+  pinMode(LEFT_LEDS, OUTPUT);
+  digitalWrite(LEFT_LEDS, 0);
+  digitalWrite(RIGHT_LEDS, 1);
+  digitalWrite(PIN_LED_1, 0);
+  digitalWrite(PIN_LED_2, 0);
+  
 }
 
-//+=============================================================================
-// Display IR code
-//
 void  ircode (decode_results *results)
 {
-  // Panasonic has an Address
+
   if (results->decode_type == PANASONIC) {
     Serial.print(results->address, HEX);
     Serial.print(":");
   }
-
-  // Print Code
   Serial.print(results->value, HEX);
 }
 
-void  encoding (decode_results *results)
-{
-  switch (results->decode_type) {
-    default:
-    case UNKNOWN:      Serial.print("UNKNOWN");       break ;
-    case NEC:          Serial.print("NEC");           break ;
-    case SONY:         Serial.print("SONY");          break ;
-    case RC5:          Serial.print("RC5");           break ;
-    case RC6:          Serial.print("RC6");           break ;
-    case DISH:         Serial.print("DISH");          break ;
-    case SHARP:        Serial.print("SHARP");         break ;
-    case JVC:          Serial.print("JVC");           break ;
-    case SANYO:        Serial.print("SANYO");         break ;
-    case MITSUBISHI:   Serial.print("MITSUBISHI");    break ;
-    case SAMSUNG:      Serial.print("SAMSUNG");       break ;
-    case LG:           Serial.print("LG");            break ;
-    case WHYNTER:      Serial.print("WHYNTER");       break ;
-    case AIWA_RC_T501: Serial.print("AIWA_RC_T501");  break ;
-    case PANASONIC:    Serial.print("PANASONIC");     break ;
-    case DENON:        Serial.print("Denon");         break ;
-  }
-}
+
 
 void  dumpInfo (decode_results *results)
 {
-  // Check if the buffer overflowed
   if (results->overflow) {
     Serial.println("IR code too long. Edit IRremoteInt.h and increase RAWBUF");
     return;
   }
-  // Show Encoding standard
-  // Serial.print("Encoding  : ");
-  // encoding(results);
-  // Serial.println("");
-  // Show Code & length
+
   Serial.print("Code      : ");
   ircode(results);
-  // Serial.print(" (");
-  // Serial.print(results->bits, DEC);
-  // Serial.println(" bits)");
+
   Serial.println("");
 }
 
-// void  dumpRaw (decode_results *results)
-// {
-//   // Print Raw data
-//   Serial.print("Timing[");
-//   Serial.print(results->rawlen-1, DEC);
-//   Serial.println("]: ");
 
-//   for (int i = 1;  i < results->rawlen;  i++) {
-//     unsigned long  x = results->rawbuf[i] * USECPERTICK;
-//     if (!(i & 1)) {  // even
-//       Serial.print("-");
-//       if (x < 1000)  Serial.print(" ") ;
-//       if (x < 100)   Serial.print(" ") ;
-//       Serial.print(x, DEC);
-//     } else {  // odd
-//       Serial.print("     ");
-//       Serial.print("+");
-//       if (x < 1000)  Serial.print(" ") ;
-//       if (x < 100)   Serial.print(" ") ;
-//       Serial.print(x, DEC);
-//       if (i < results->rawlen-1) Serial.print(", "); //',' not needed for last one
-//     }
-//     if (!(i % 8))  Serial.println("");
-//   }
-//   Serial.println("");                    // Newline
-// }
+void DisplayNumber(int num) {
+  int tens;
+  int ones;
+  if (num > 100 || num < 0) {
+    num = 0;
+  }
 
-// void  dumpCode (decode_results *results)
-// {
-//   // Start declaration
-//   Serial.print("unsigned int  ");          // variable type
-//   Serial.print("rawData[");                // array name
-//   Serial.print(results->rawlen - 1, DEC);  // array size
-//   Serial.print("] = {");                   // Start declaration
+  ones = num % 10;
+  if (num < 10) {
+    tens = 0;
+  }
+  else {
+    tens = num -(num/10)*10;
+  }
 
-//   // Dump data
-//   for (int i = 1;  i < results->rawlen;  i++) {
-//     Serial.print(results->rawbuf[i] * USECPERTICK, DEC);
-//     if ( i < results->rawlen-1 ) Serial.print(","); // ',' not needed on last one
-//     if (!(i & 1))  Serial.print(" ");
-//   }
-
-//   // End declaration
-//   Serial.print("};");  // 
-
-//   // Comment
-//   Serial.print("  // ");
-//   encoding(results);
-//   Serial.print(" ");
-//   ircode(results);
-
-//   // Newline
-//   Serial.println("");
-
-//   // Now dump "known" codes
-//   if (results->decode_type != UNKNOWN) {
-
-//     // Some protocols have an address
-//     if (results->decode_type == PANASONIC) {
-//       Serial.print("unsigned int  addr = 0x");
-//       Serial.print(results->address, HEX);
-//       Serial.println(";");
-//     }
-
-//     // All protocols have data
-//     Serial.print("unsigned int  data = 0x");
-//     Serial.print(results->value, HEX);
-//     Serial.println(";");
-//   }
-// }
+  digitalWrite(PIN_LATCH, 0);
+  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[ones]);
+  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[tens]);
+  digitalWrite(PIN_LATCH, 1);
+  
+  Serial.print(ones);
+  Serial.print("  ");
+  Serial.print(tens);
+  Serial.print("\n"); 
+}
 
 void  loop ( )
 {
-  decode_results  results;        // Somewhere to store the results
+  decode_results  results;        
+  // if (irrecv.decode(&results)) {  
+  //   dumpInfo(&results);           
+  //   Serial.println("");           
+  //   irrecv.resume();              
+  // }
 
-  if (irrecv.decode(&results)) {  // Grab an IR code
-    dumpInfo(&results);           // Output the results
-    // dumpRaw(&results);            // Output the results in RAW format
-    // dumpCode(&results);           // Output the results as source code
-    Serial.println("");           // Blank line between entries
-    irrecv.resume();              // Prepare for the next value
-  // Show Encoding standard
+  for (int i = 0; i < 10 ; i++) {
+    // DisplayNumber(i);
+    
+    digitalWrite(RIGHT_LEDS,!digitalRead(RIGHT_LEDS));
+    digitalWrite(LEFT_LEDS,!digitalRead(LEFT_LEDS));
+    analogWrite(PIN_LED_1,30);
+    analogWrite(PIN_LED_2,30);
+    digitalWrite(PIN_LATCH, 0);
+    shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[i]);
+    shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[i]);
+    shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[i]);
+    digitalWrite(PIN_LATCH, 1);
+    delay(600);
   }
+  delay(600);
 }

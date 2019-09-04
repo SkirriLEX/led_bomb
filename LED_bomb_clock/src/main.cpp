@@ -10,8 +10,10 @@
 #define PIN_LED_1     9
 #define PIN_LED_2     10
 
-const byte ledCharSet[10] =
-{
+#define TIME_TICK           1000
+#define TIME_HALPH_TICK     500
+
+const byte ledCharSet[11] ={
   B01111110, //0
   B00011000, //1
   B11010110, //2
@@ -21,9 +23,13 @@ const byte ledCharSet[10] =
   B11101110, //6
   B01011000, //7
   B11111110, //8
-  B11111010  //9
+  B11111010, //9
+  B00000000  //F
 };
 
+int led_num3=0, led_num2=0, led_num1=72;
+bool flag_clock=0, flag_play =1;
+long tick_last_time =0;
 IRrecv irrecv(IR_RECIVE);
 
 void setup() {
@@ -40,83 +46,121 @@ void setup() {
   digitalWrite(RIGHT_LEDS, 1);
   digitalWrite(PIN_LED_1, 0);
   digitalWrite(PIN_LED_2, 0);
-  
 }
 
-void  ircode (decode_results *results)
-{
-
-  if (results->decode_type == PANASONIC) {
-    Serial.print(results->address, HEX);
-    Serial.print(":");
+void  dumpInfo (decode_results *results){
+  long code = results->value;
+  Serial.println(code, HEX);
+  switch (code) {
+    case 0xFF38C7: //OK
+      Serial.println("OK");
+      flag_play = !flag_play;
+      break;
+    case 0xFF18E7: //UP
+      if (led_num1<99){
+        led_num1++;
+      }
+      break;
+    case 0xFF4AB5: //DOWN
+      if (led_num1>0){
+        led_num1--;
+      }
+      break;
+    case 0xFF5AA5: //RIGHT
+      if (led_num2<59){
+        led_num2++;
+      }
+      break;
+    case 0xFF10EF: //LEFT
+      if (led_num2>0){
+        led_num2--;
+      }
+      break;
+    case 0xFFA25D: //1
+    case 0xFF629D: //2
+    case 0xFFE21D: //3
+    case 0xFF22DD: //4
+    case 0xFF02FD: //5
+    case 0xFFC23D: //6
+    case 0xFFE01F: //7
+    case 0xFFA857: //8
+    case 0xFF906F: //9
+    case 0xFF9867: //0
+    case 0xFF6897: //*
+    case 0xFFB04F: //#
+    case 0xFFFFFF:
+      break;
+    default:
+      break;
   }
-  Serial.print(results->value, HEX);
 }
 
-
-
-void  dumpInfo (decode_results *results)
-{
-  if (results->overflow) {
-    Serial.println("IR code too long. Edit IRremoteInt.h and increase RAWBUF");
-    return;
+int getNums(int num){
+  if  (num>99){
+    return 10;
   }
-
-  Serial.print("Code      : ");
-  ircode(results);
-
-  Serial.println("");
+  if (flag_clock){
+    return num/10;
+  } else {
+    return num%10;
+  } 
 }
 
-
-void DisplayNumber(int num) {
-  int tens;
-  int ones;
-  if (num > 100 || num < 0) {
-    num = 0;
+void drawDisplayNumbers() {
+  if (flag_clock){ 
+    digitalWrite(RIGHT_LEDS,!flag_clock);
+  } else {
+    digitalWrite(LEFT_LEDS,flag_clock);
   }
-
-  ones = num % 10;
-  if (num < 10) {
-    tens = 0;
-  }
-  else {
-    tens = num -(num/10)*10;
-  }
-
   digitalWrite(PIN_LATCH, 0);
-  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[ones]);
-  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[tens]);
-  digitalWrite(PIN_LATCH, 1);
-  
-  Serial.print(ones);
-  Serial.print("  ");
-  Serial.print(tens);
-  Serial.print("\n"); 
+  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[getNums(led_num3)]);
+  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[getNums(led_num2)]);
+  shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[getNums(led_num1)]);
+  digitalWrite(PIN_LATCH, 1);    
+  if (!flag_clock){ 
+    digitalWrite(RIGHT_LEDS,!flag_clock);
+  } else {
+    digitalWrite(LEFT_LEDS,flag_clock);
+  }
+  delay(1);
+  flag_clock = !flag_clock;
 }
 
 void  loop ( )
 {
   decode_results  results;        
-  // if (irrecv.decode(&results)) {  
-  //   dumpInfo(&results);           
-  //   Serial.println("");           
-  //   irrecv.resume();              
-  // }
-
-  for (int i = 0; i < 10 ; i++) {
-    // DisplayNumber(i);
-    
-    digitalWrite(RIGHT_LEDS,!digitalRead(RIGHT_LEDS));
-    digitalWrite(LEFT_LEDS,!digitalRead(LEFT_LEDS));
-    analogWrite(PIN_LED_1,30);
-    analogWrite(PIN_LED_2,30);
-    digitalWrite(PIN_LATCH, 0);
-    shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[i]);
-    shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[i]);
-    shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, ledCharSet[i]);
-    digitalWrite(PIN_LATCH, 1);
-    delay(600);
+  if (irrecv.decode(&results)) {  
+    dumpInfo(&results);           
+    irrecv.resume();              
   }
-  delay(600);
+
+  if (flag_play && millis()-tick_last_time>TIME_TICK/2){
+    analogWrite(PIN_LED_1,20);
+    analogWrite(PIN_LED_2,20);
+  }
+  if (flag_play && millis()-tick_last_time>TIME_TICK){
+    digitalWrite(PIN_LED_1,0);
+    digitalWrite(PIN_LED_2,0);
+    tick_last_time = millis();
+    led_num3--;
+    if (led_num3<0){
+      led_num2--;
+      if (led_num2<0){
+        led_num1--;
+        if (led_num1<0)
+        {
+          led_num1 = 99;
+        }
+        led_num2=59;
+      }
+      led_num3=59;
+    }
+  }
+  // analogWrite(PIN_LED_1,30)
+
+  drawDisplayNumbers();
+  // digitalWrite(RIGHT_LEDS,!digitalRead(RIGHT_LEDS));
+  // digitalWrite(LEFT_LEDS,!digitalRead(LEFT_LEDS));
+  // analogWrite(PIN_LED_1,30);
+  // analogWrite(PIN_LED_2,30);
 }

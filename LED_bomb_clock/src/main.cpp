@@ -10,8 +10,6 @@
 #define PIN_LED_1     9
 #define PIN_LED_2     10
 
-#define TIME_TICK           1000
-#define TIME_HALPH_TICK     500
 
 const byte ledCharSet[11] ={
   B01111110, //0
@@ -27,9 +25,12 @@ const byte ledCharSet[11] ={
   B00000000  //F
 };
 
-int led_num3=0, led_num2=0, led_num1=72;
+int led_num1=72, led_num2=0, led_num3=0;
 bool flag_clock=0, flag_play =1;
 long tick_last_time =0;
+int flag_general_state = 1;
+int time_tick = 1000;
+int time_half_tick = 500;
 IRrecv irrecv(IR_RECIVE);
 
 void setup() {
@@ -54,7 +55,11 @@ void  dumpInfo (decode_results *results){
   switch (code) {
     case 0xFF38C7: //OK
       Serial.println("OK");
-      flag_play = !flag_play;
+      if  (flag_general_state !=1){
+        flag_general_state =1;
+      } else {
+        flag_general_state =2;
+      }
       break;
     case 0xFF18E7: //UP
       if (led_num1<99){
@@ -77,17 +82,41 @@ void  dumpInfo (decode_results *results){
       }
       break;
     case 0xFFA25D: //1
+      flag_general_state =1;
+      break;
     case 0xFF629D: //2
+      flag_general_state =4;
+      break;
     case 0xFFE21D: //3
     case 0xFF22DD: //4
     case 0xFF02FD: //5
+      led_num1=72, led_num2=0, led_num3=0;
+      break;
     case 0xFFC23D: //6
+      break;
     case 0xFFE01F: //7
-    case 0xFFA857: //8
+      time_tick = 1000;
+      time_half_tick = 500;
+      break;
+    case 0xFFA857: //8      
+      time_tick = 500;
+      time_half_tick = 250;
+      break;
     case 0xFF906F: //9
+      time_tick = 250;
+      time_half_tick = 125;
+      break;
     case 0xFF9867: //0
+      flag_general_state =3;
+      break;
     case 0xFF6897: //*
+      time_tick = 1000;
+      time_half_tick = 500;
+      break;
     case 0xFFB04F: //#
+      time_tick = 10;
+      time_half_tick = 500;
+      break;
     case 0xFFFFFF:
       break;
     default:
@@ -122,7 +151,7 @@ void drawDisplayNumbers() {
   } else {
     digitalWrite(LEFT_LEDS,flag_clock);
   }
-  delay(1);
+  delayMicroseconds(100);
   flag_clock = !flag_clock;
 }
 
@@ -134,33 +163,71 @@ void  loop ( )
     irrecv.resume();              
   }
 
-  if (flag_play && millis()-tick_last_time>TIME_TICK/2){
-    analogWrite(PIN_LED_1,20);
-    analogWrite(PIN_LED_2,20);
-  }
-  if (flag_play && millis()-tick_last_time>TIME_TICK){
-    digitalWrite(PIN_LED_1,0);
-    digitalWrite(PIN_LED_2,0);
-    tick_last_time = millis();
-    led_num3--;
-    if (led_num3<0){
-      led_num2--;
-      if (led_num2<0){
-        led_num1--;
-        if (led_num1<0)
-        {
-          led_num1 = 99;
-        }
-        led_num2=59;
+  switch (flag_general_state){
+    case 1://time go
+      if (millis()-tick_last_time>time_half_tick){
+        analogWrite(PIN_LED_1,20);
+        analogWrite(PIN_LED_2,20);
+      }else{
+        digitalWrite(PIN_LED_1,0);
+        digitalWrite(PIN_LED_2,0);
       }
-      led_num3=59;
-    }
-  }
-  // analogWrite(PIN_LED_1,30)
+      if (millis()-tick_last_time>time_tick){
+        tick_last_time = millis();
+        led_num3--;
+        if (led_num3<0){
+          led_num2--;
+          if (led_num2<0){
+            led_num1--;
+            if (led_num1<0)
+            {
+              led_num1 = 99;
+              flag_general_state =3;
+            }
+            led_num2=59;
+          }
+          led_num3=59;
+        }
+      }
+      break;
+    case 2://time stop
+        analogWrite(PIN_LED_1,20);
+        analogWrite(PIN_LED_2,20);
+      break;
+    case 3://time out
+        led_num1=0, led_num2=0, led_num3=0;
+        flag_general_state =2;
+      break;
+    case 4:
+      if (millis()-tick_last_time>time_half_tick){
+        analogWrite(PIN_LED_1,20);
+        analogWrite(PIN_LED_2,20);
+      }else{
+        digitalWrite(PIN_LED_1,0);
+        digitalWrite(PIN_LED_2,0);
+      }
+      if (millis()-tick_last_time>time_tick){
+        tick_last_time = millis();
+        led_num3++;
+        if (led_num3>59){
+          led_num2++;
+          if (led_num2>59){
+            led_num1++;
+            if (led_num1>99)
+            {
+              led_num1 = 00;
+              flag_general_state =3;
+            }
+            led_num2=00;
+          }
+          led_num3=00;
+        }
+      }
+      break;
+    default:
 
+      break;
+    
+  }
   drawDisplayNumbers();
-  // digitalWrite(RIGHT_LEDS,!digitalRead(RIGHT_LEDS));
-  // digitalWrite(LEFT_LEDS,!digitalRead(LEFT_LEDS));
-  // analogWrite(PIN_LED_1,30);
-  // analogWrite(PIN_LED_2,30);
 }
